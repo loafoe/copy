@@ -93,7 +93,7 @@ func dcopy(srcdir, destdir string, info os.FileInfo, callbacks ...CopyCallback) 
 
 	for _, content := range contents {
 		cs, cd := filepath.Join(srcdir, content.Name()), filepath.Join(destdir, content.Name())
-		if err := copy(cs, cd, content); err != nil {
+		if err := copy(cs, cd, content, callbacks...); err != nil {
 			// If any error, exit immediately
 			return err
 		}
