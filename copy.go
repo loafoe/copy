@@ -14,32 +14,37 @@ const (
 	tmpPermissionForDirectory = os.FileMode(0755)
 )
 
+type CopyCallback func(info os.FileInfo)
+
 // Copy copies src to dest, doesn't matter if src is a directory or a file
-func Copy(src, dest string) error {
+func Copy(src, dest string, callbacks ...CopyCallback) error {
 	info, err := os.Lstat(src)
 	if err != nil {
 		return err
 	}
-	return copy(src, dest, info)
+	return copy(src, dest, info, callbacks...)
 }
 
 // copy dispatches copy-funcs according to the mode.
 // Because this "copy" could be called recursively,
 // "info" MUST be given here, NOT nil.
-func copy(src, dest string, info os.FileInfo) error {
+func copy(src, dest string, info os.FileInfo, callbacks ...CopyCallback) error {
 	if info.Mode()&os.ModeSymlink != 0 {
-		return lcopy(src, dest, info)
+		return lcopy(src, dest, info, callbacks...)
 	}
 	if info.IsDir() {
-		return dcopy(src, dest, info)
+		return dcopy(src, dest, info, callbacks...)
 	}
-	return fcopy(src, dest, info)
+	return fcopy(src, dest, info, callbacks...)
 }
 
 // fcopy is for just a file,
 // with considering existence of parent directory
 // and file permission.
-func fcopy(src, dest string, info os.FileInfo) error {
+func fcopy(src, dest string, info os.FileInfo, callbacks ...CopyCallback) error {
+	for _, callback := range callbacks {
+		callback(info)
+	}
 
 	if err := os.MkdirAll(filepath.Dir(dest), os.ModePerm); err != nil {
 		return err
@@ -68,8 +73,10 @@ func fcopy(src, dest string, info os.FileInfo) error {
 // dcopy is for a directory,
 // with scanning contents inside the directory
 // and pass everything to "copy" recursively.
-func dcopy(srcdir, destdir string, info os.FileInfo) error {
-
+func dcopy(srcdir, destdir string, info os.FileInfo, callbacks ...CopyCallback) error {
+	for _, callback := range callbacks {
+		callback(info)
+	}
 	originalMode := info.Mode()
 
 	// Make dest dir with 0755 so that everything writable.
@@ -97,7 +104,10 @@ func dcopy(srcdir, destdir string, info os.FileInfo) error {
 
 // lcopy is for a symlink,
 // with just creating a new symlink by replicating src symlink.
-func lcopy(src, dest string, info os.FileInfo) error {
+func lcopy(src, dest string, info os.FileInfo, callbacks ...CopyCallback) error {
+	for _, callback := range callbacks {
+		callback(info)
+	}
 	src, err := os.Readlink(src)
 	if err != nil {
 		return err
